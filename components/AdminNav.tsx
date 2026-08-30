@@ -1,2 +1,46 @@
-'use client';import Link from 'next/link';import {useRouter} from 'next/navigation';import {supabaseBrowser} from '@/lib/supabase-browser';
-export default function AdminNav(){const r=useRouter();async function out(){await supabaseBrowser().auth.signOut();r.replace('/admin/login')}return <div className="split"><div className="adminnav"><Link href="/admin">Dashboard</Link><Link href="/admin/questions">Questions</Link><Link href="/admin/participants">Participants</Link><Link href="/admin/results">Results</Link></div><button className="btn btn-secondary" onClick={out}>Sign out</button></div>}
+'use client';
+
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { supabaseBrowser } from '@/lib/supabase-browser';
+import { cn } from '@/lib/utils';
+
+const LINKS = [
+  { href: '/admin', label: 'Dashboard' },
+  { href: '/admin/questions', label: 'Questions' },
+  { href: '/admin/participants', label: 'Participants' },
+  { href: '/admin/results', label: 'Results' },
+];
+
+export default function AdminNav() {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  async function signOut() {
+    await supabaseBrowser().auth.signOut();
+    router.replace('/admin/login');
+  }
+
+  return (
+    <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b py-5">
+      <div className="flex flex-wrap gap-2">
+        {LINKS.map((l) => (
+          <Button
+            key={l.href}
+            asChild
+            size="sm"
+            variant={pathname === l.href ? 'default' : 'ghost'}
+            className={cn(pathname !== l.href && 'text-muted-foreground')}
+          >
+            <Link href={l.href}>{l.label}</Link>
+          </Button>
+        ))}
+      </div>
+      <Button variant="outline" size="sm" onClick={signOut}>
+        <LogOut className="size-4" /> Sign out
+      </Button>
+    </div>
+  );
+}

@@ -1,12 +1,25 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import Link from 'next/link';
+import { Poppins } from 'next/font/google';
+import { EVENT } from '@/lib/quiz-config';
+
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
+  variable: '--font-poppins',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
-  title: 'International Service Quiz | Rotaract Club of Madras Millenia',
-  description: 'A live international knowledge quiz by Rotaract Club of Madras Millenia.'
+  title: `${EVENT.name} · ${EVENT.subtitle}`,
+  description:
+    'A dynamic quiz contest on Rotary & Rotaract, Current Affairs & News that challenges your knowledge, sparks your curiosity and creates impact.',
 };
 
-export default function RootLayout({children}:{children:React.ReactNode}){
-  return <html lang="en"><body><div className="container"><nav className="nav"><Link href="/" className="brand">INTERNATIONAL SERVICE QUIZ<small>Rotaract Club of Madras Millenia</small></Link><div className="navlinks"><Link href="/rules">Rules</Link><Link href="/register">Register</Link><Link href="/join">Join</Link></div></nav>{children}<footer className="footer">© {new Date().getFullYear()} Rotaract Club of Madras Millenia · International Service</footer></div></body></html>
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en" className={poppins.variable}>
+      <body>{children}</body>
+    </html>
+  );
 }

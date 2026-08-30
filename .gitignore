@@ -47,3 +47,7 @@ next-env.d.ts
 .branches
 .temp
 supabase/.temp
+
+# local scratch
+*.tmp.*
+*.tmp
