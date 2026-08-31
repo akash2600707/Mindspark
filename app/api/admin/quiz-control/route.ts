@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { timeLimitFor } from '@/lib/quiz-config';
+import { advanceIfExpired } from '@/lib/quiz-advance';
 
 function adminDb() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -41,14 +43,20 @@ export async function GET(req: Request) {
     const db = adminDb();
     await assertAdmin(db, user.id);
     const quiz = await getQuiz(db);
-    const [{ data: state, error: se }, { data: questions, error: qe }, { count, error: pe }] = await Promise.all([
+    const [{ data: rawState, error: se }, { data: questions, error: qe }, { count, error: pe }] = await Promise.all([
       db.from('quiz_state').select('*').eq('quiz_id', quiz.id).maybeSingle(),
-      db.from('questions').select('id,question_number,question_text,points,time_limit_seconds').eq('quiz_id', quiz.id).order('question_number'),
+      db.from('questions').select('id,question_number,question_text,points,time_limit_seconds,section').eq('quiz_id', quiz.id).order('question_number'),
       db.from('participants').select('id', { count: 'exact', head: true }).eq('quiz_id', quiz.id),
     ]);
     if (se) throw se;
     if (qe) throw qe;
     if (pe) throw pe;
+
+    // The organizer's dashboard polls this endpoint, so running the same
+    // compare-and-swap here keeps the quiz moving even when no participant is
+    // polling. Idempotent, and safe to call on every refresh.
+    const state = await advanceIfExpired(db, quiz.id, rawState);
+
     return NextResponse.json({ quiz, state, questions: questions ?? [], participantCount: count ?? 0 });
   } catch (e) {
     console.error(e);
@@ -65,7 +73,7 @@ export async function POST(req: Request) {
     const db = adminDb();
     await assertAdmin(db, user.id);
     const quiz = await getQuiz(db);
-    const { data: questions, error: qe } = await db.from('questions').select('id,question_number,time_limit_seconds').eq('quiz_id', quiz.id).order('question_number');
+    const { data: questions, error: qe } = await db.from('questions').select('id,question_number,time_limit_seconds,section').eq('quiz_id', quiz.id).order('question_number');
     if (qe) throw qe;
     const { data: current, error: ce } = await db.from('quiz_state').select('*').eq('quiz_id', quiz.id).maybeSingle();
     if (ce) throw ce;
@@ -86,7 +94,7 @@ export async function POST(req: Request) {
       const first = questions?.[0];
       if (!first) return NextResponse.json({ error: 'Add at least one question first.' }, { status: 400 });
       const now = new Date();
-      const end = new Date(now.getTime() + (first.time_limit_seconds || 15) * 1000);
+      const end = new Date(now.getTime() + timeLimitFor(first) * 1000);
       const stateUpdate = await db.from('quiz_state').update({ status: 'LIVE', current_question_id: first.id, question_started_at: now.toISOString(), question_ends_at: end.toISOString() }).eq('quiz_id', quiz.id).select('quiz_id').maybeSingle();
       if (stateUpdate.error) throw stateUpdate.error;
       if (!stateUpdate.data) {
@@ -106,7 +114,8 @@ export async function POST(req: Request) {
       if (!current?.current_question_id) return NextResponse.json({ error: 'No active question.' }, { status: 400 });
       const currentQuestion = questions?.find((x) => x.id === current.current_question_id);
       const now = new Date();
-      const end = new Date(now.getTime() + (currentQuestion?.time_limit_seconds || 15) * 1000);
+      if (!currentQuestion) return NextResponse.json({ error: 'Current question no longer exists.' }, { status: 409 });
+      const end = new Date(now.getTime() + timeLimitFor(currentQuestion) * 1000);
       const { error } = await db.from('quiz_state').update({ status: 'LIVE', question_started_at: now.toISOString(), question_ends_at: end.toISOString() }).eq('quiz_id', quiz.id);
       if (error) throw error;
       return NextResponse.json({ ok: true, message: 'Quiz resumed.' });
@@ -123,7 +132,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: true, message: 'Quiz completed.' });
       }
       const now = new Date();
-      const end = new Date(now.getTime() + (next.time_limit_seconds || 15) * 1000);
+      const end = new Date(now.getTime() + timeLimitFor(next) * 1000);
       const { error } = await db.from('quiz_state').update({ status: 'LIVE', current_question_id: next.id, question_started_at: now.toISOString(), question_ends_at: end.toISOString() }).eq('quiz_id', quiz.id);
       if (error) throw error;
       return NextResponse.json({ ok: true, message: `Question ${next.question_number} started.` });

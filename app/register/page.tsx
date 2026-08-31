@@ -1,9 +1,24 @@
-'use client';
-import {useState} from 'react';
-import {useRouter} from 'next/navigation';
+import SiteShell from '@/components/SiteShell';
+import RegistrationForm from '@/components/registration/RegistrationForm';
 
-export default function Register(){
- const router=useRouter(); const [form,setForm]=useState({fullName:'',dob:'',clubName:'',city:'',email:'',mobile:''}); const [error,setError]=useState(''); const [loading,setLoading]=useState(false);
- async function submit(e:React.FormEvent){e.preventDefault();setError('');setLoading(true);try{const r=await fetch('/api/register',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(form)});const j=await r.json();if(!r.ok)throw new Error(j.error||'Registration failed');sessionStorage.setItem('participant_code',j.participantCode);router.push('/register/success?code='+encodeURIComponent(j.participantCode));}catch(err){setError(err instanceof Error?err.message:'Something went wrong');}finally{setLoading(false)}}
- return <main className="section"><div className="card" style={{maxWidth:700,margin:'auto'}}><div className="eyebrow">Registration</div><h1>Register for the quiz</h1><p className="muted">Keep your details accurate. Only necessary event information is collected.</p>{error&&<div className="error">{error}</div>}<form className="form" onSubmit={submit}><div className="field"><label>Full Name *</label><input required maxLength={120} value={form.fullName} onChange={e=>setForm({...form,fullName:e.target.value})}/></div><div className="field"><label>Date of Birth *</label><input required type="date" value={form.dob} onChange={e=>setForm({...form,dob:e.target.value})}/></div><div className="field"><label>Club Name *</label><input required maxLength={160} value={form.clubName} onChange={e=>setForm({...form,clubName:e.target.value})}/></div><div className="grid grid-2"><div className="field"><label>City</label><input maxLength={100} value={form.city} onChange={e=>setForm({...form,city:e.target.value})}/></div><div className="field"><label>Mobile</label><input inputMode="tel" maxLength={25} value={form.mobile} onChange={e=>setForm({...form,mobile:e.target.value})}/></div></div><div className="field"><label>Email</label><input type="email" maxLength={160} value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/><div className="help">Optional. Use only if the organizers need it for event communication.</div></div><button className="btn btn-primary" disabled={loading}>{loading?'Registering…':'Register'}</button></form></div></main>
+export const metadata = { title: 'Register · MIND SPARK' };
+
+export default function RegisterPage() {
+  return (
+    <SiteShell>
+      <main className="py-14 sm:py-20">
+        <div className="mx-auto max-w-xl">
+          <p className="eyebrow">Registration</p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-tight uppercase sm:text-5xl">
+            Join the challenge
+          </h1>
+          <p className="text-muted-foreground mt-4 mb-10">
+            Register once. Your Challenge ID is generated instantly and the quiz begins when the
+            host starts it.
+          </p>
+          <RegistrationForm />
+        </div>
+      </main>
+    </SiteShell>
+  );
 }
